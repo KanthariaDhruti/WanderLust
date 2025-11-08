@@ -28,6 +28,7 @@ app.use(
     credentials: true, // ✅ allow cookies for auth
   })
 );
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride("_method"));
@@ -311,5 +312,19 @@ app.get("/logout", (req, res, next) => {
   });
 });
 
-/* ---------------------------------- START SERVER ---------------------------------- */
-app.listen(8080, () => console.log("🚀 Server running on port 8080"));
+/* ---------------------------------- DEPLOYMENT (for Render) ---------------------------------- */
+const path = require("path");
+
+// ✅ Serve frontend build when in production
+if (process.env.NODE_ENV === "production") {
+  const __dirname1 = path.resolve();
+  app.use(express.static(path.join(__dirname1, "/client/dist")));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.resolve(__dirname1, "client", "dist", "index.html"));
+  });
+}
+
+// ✅ Use Render or local port
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
