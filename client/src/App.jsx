@@ -14,6 +14,7 @@ import Signup from "./components/Signup";
 import Review from "./components/Review";
 import Login from "./components/Login";
 import { AuthProvider } from "./components/AuthContext";
+import User from "./components/User";
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
             <Route path="/listings/:id/edit" element={<Edit />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/user" element={<User />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Footer />

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import "../App.css";
-import "./Review.css"
+import "./Review.css";
 import Review from "./Review";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -135,7 +135,6 @@ function Show() {
   return (
     <div className="px-6 py-8">
       <Toaster position="top-center" />
-
       <h1 className="text-3xl font-bold mb-8 text-gray-900 text-center">
         {view.title}
       </h1>
@@ -147,10 +146,8 @@ function Show() {
           {view.image ? (
             <div className="w-full h-90 overflow-hidden rounded-xl shadow-lg">
               <img
-                src={
-                  typeof view.image === "file" ? view.image : view.image.url
-                }
-                alt={view.image.filename || "Listing Image"}
+                src={view?.image?.url || view?.image}
+                alt={view?.image?.filename || "Listing Image"}
                 className="w-full h-full object-cover"
               />
             </div>

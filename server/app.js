@@ -1,6 +1,5 @@
-// ✅ Load environment variables (make sure .env is in the root or adjust path)
 if (process.env.NODE_ENV !== "production") {
-  require("dotenv").config({ path: "./server/.env" });
+  require("dotenv").config({ path: require("path").resolve(__dirname, "./.env") });
 }
 const express = require("express");
 const mongoose = require("mongoose");
@@ -9,23 +8,23 @@ const methodOverride = require("method-override");
 const session = require("express-session");
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
-const { cloudinary } = require("./cloudConfig.js"); // ✅ make sure this is at the top
+const { cloudinary, storage } = require("./cloudConfig.js");
 const multer = require("multer");
 const wrapAsync = require("./utils/wrapAsync.js");
 const ExpressError = require("./utils/ExpressError.js");
 const Listing = require("./models/listing.js");
 const Review = require("./models/review.js");
 const User = require("./models/user.js");
-const { storage } = require("./cloudConfig.js");
 const upload = multer({ storage });
+const path = require("path");
 const app = express();
 
 /* ---------------------------------- MIDDLEWARE ---------------------------------- */
 
 app.use(
   cors({
-    origin: "http://localhost:5173", // your React app’s origin
-    credentials: true, // ✅ allow cookies for auth
+    origin: "http://localhost:5173", // ✅ your React app’s origin (Vite)
+    credentials: true,
   })
 );
 
@@ -36,12 +35,12 @@ app.use(methodOverride("_method"));
 /* ---------------------------------- SESSION ---------------------------------- */
 
 const sessionOptions = {
-  secret: process.env.SECRET || "fallbackSecretKey", // ✅ from .env
+  secret: process.env.SECRET || "fallbackSecretKey",
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // ✅ only secure on HTTPS
+    secure: process.env.NODE_ENV === "production", // only HTTPS in production
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   },
 };
@@ -66,7 +65,7 @@ mongoose
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.error("❌ MongoDB Connection Error:", err));
 
-/* ---------------------------------- MIDDLEWARES ---------------------------------- */
+/* ---------------------------------- AUTH MIDDLEWARE ---------------------------------- */
 
 const isLoggedIn = (req, res, next) => {
   if (!req.isAuthenticated()) {
@@ -79,7 +78,7 @@ const isLoggedIn = (req, res, next) => {
   next();
 };
 
-/* ---------------------------------- ROUTES ---------------------------------- */
+/* ---------------------------------- LISTINGS ROUTES ---------------------------------- */
 
 // ✅ Get all listings
 app.get(
@@ -112,55 +111,93 @@ app.post(
   "/listings",
   isLoggedIn,
   upload.single("listing[image]"),
-  wrapAsync(async (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ message: "Image upload is required" });
+  async (req, res) => {
+    try {
+      console.log("🧠 Logged in user:", req.user);
+      console.log("📦 Request body:", req.body);
+      console.log("🖼️ Uploaded file:", req.file);
+
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: "You must be logged in to perform this action.",
+        });
+      }
+
+      const { title, description, price, location, country } = req.body.listing || {};
+
+      if (!title || !description || !price || !location || !country) {
+        return res.status(400).json({
+          success: false,
+          message: "All fields are required.",
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "Image upload is required.",
+        });
+      }
+
+      const newListing = new Listing({
+        title,
+        description,
+        price,
+        location,
+        country,
+        image: {
+          url: req.file.path,
+          filename: req.file.filename,
+        },
+        owner: req.user._id,
+      });
+
+      await newListing.save();
+      console.log("✅ Listing saved successfully:", newListing);
+
+      res.status(201).json({
+        success: true,
+        message: "Listing created successfully!",
+        listing: newListing,
+      });
+    } catch (err) {
+      console.error("❌ Error creating listing:", err);
+      res.status(500).json({
+        success: false,
+        message: "Unable to add listing. Please try again later.",
+      });
     }
-
-    const { path: url, filename } = req.file; // ✅ use correct property name
-    const newListing = new Listing(req.body.listing);
-    newListing.owner = req.user._id;
-    newListing.image = { url, filename }; // ✅ match schema exactly
-
-    await newListing.save();
-
-    res.status(201).json({
-      success: true,
-      message: "New listing added!",
-      listing: newListing,
-    });
-  })
+  }
 );
 
-// update listing
+
+// ✅ Update listing
 app.put(
   "/listings/:id",
   isLoggedIn,
-  upload.single("listing[image]"), // ✅ allows image upload
+  upload.single("listing[image]"),
   wrapAsync(async (req, res) => {
     const { id } = req.params;
 
-    // find listing
     const listing = await Listing.findById(id);
     if (!listing) {
       return res.status(404).json({ message: "Listing not found" });
     }
 
-    // authorization check
     if (!listing.owner.equals(req.user._id)) {
       return res
         .status(403)
         .json({ message: "Not authorized to edit this listing" });
     }
 
-    // update text fields
     listing.title = req.body.listing.title;
     listing.description = req.body.listing.description;
     listing.price = req.body.listing.price;
     listing.location = req.body.listing.location;
     listing.country = req.body.listing.country;
 
-    // ✅ handle new image upload
+    // ✅ Update image if new one uploaded
     if (req.file) {
       if (listing.image && listing.image.filename) {
         try {
@@ -169,7 +206,6 @@ app.put(
           console.error("Cloudinary deletion failed:", err.message);
         }
       }
-      // 🆕 set new image data
       listing.image.url = req.file.path;
       listing.image.filename = req.file.filename;
     }
@@ -195,6 +231,8 @@ app.delete(
     res.json({ success: true, message: "Listing deleted", deleted });
   })
 );
+
+/* ---------------------------------- REVIEWS ROUTES ---------------------------------- */
 
 // ✅ Add review
 app.post(
@@ -246,12 +284,24 @@ app.delete(
 /* ---------------------------------- AUTH ROUTES ---------------------------------- */
 
 // ✅ Check current user
+// /check-auth route
 app.get("/check-auth", (req, res) => {
-  res.json({
-    isAuthenticated: !!req.isAuthenticated(),
-    user: req.user || null,
-  });
+  if (req.isAuthenticated()) {
+    res.json({
+      isAuthenticated: true,
+      user: {
+        _id: req.user._id, // <-- add this
+        username: req.user.username,
+        email: req.user.email,
+        createdAt: req.user.createdAt,
+      },
+    });
+  } else {
+    res.json({ isAuthenticated: false, user: null });
+  }
 });
+
+
 
 // ✅ Signup
 app.post(
@@ -312,8 +362,28 @@ app.get("/logout", (req, res, next) => {
   });
 });
 
-/* ---------------------------------- DEPLOYMENT (for Render) ---------------------------------- */
-const path = require("path");
+/* ---------------------------------- USER ROUTES ---------------------------------- */
+
+// ✅ Get all listings created by the currently logged-in user
+app.get("/user", async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const userId = req.user._id; // logged-in user's ID
+    const listings = await Listing.find({ owner: userId }); // assuming each listing has `owner` field
+
+    res.json(listings);
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ message: "Server error while fetching user listings" });
+  }
+});
+
+/* ---------------------------------- DEPLOYMENT ---------------------------------- */
 
 // ✅ Serve frontend build when in production
 if (process.env.NODE_ENV === "production") {
@@ -325,6 +395,6 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// ✅ Use Render or local port
+// ✅ Start server
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

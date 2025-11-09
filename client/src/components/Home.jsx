@@ -4,6 +4,8 @@ import axios from "axios";
 
 function Home() {
   const [featured, setFeatured] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredListings, setFilteredListings] = useState([]);
 
   // Fetch few random listings for homepage preview
   useEffect(() => {
@@ -12,9 +14,34 @@ function Home() {
       .then((res) => {
         const randomListings = res.data.sort(() => 0.5 - Math.random()).slice(0, 4);
         setFeatured(randomListings);
+        setFilteredListings(randomListings); // initially show all
       })
       .catch((err) => console.log(err));
   }, []);
+
+  // Handle search
+  const handleSearch = () => {
+    const query = searchQuery.toLowerCase().trim();
+
+    if (!query) {
+      setFilteredListings(featured);
+      return;
+    }
+
+    const results = featured.filter(
+      (item) =>
+        item.title?.toLowerCase().includes(query) ||
+        item.location?.toLowerCase().includes(query) ||
+        item.country?.toLowerCase().includes(query)
+    );
+
+    setFilteredListings(results);
+  };
+
+  // Optional: search on Enter key
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") handleSearch();
+  };
 
   return (
     <div className="font-[Poppins]">
@@ -34,13 +61,19 @@ function Home() {
           </p>
 
           {/* Search Bar */}
-          <div className="bg-white rounded-full shadow-lg p-2 px-4 flex items-center gap-2 w-[90%] max-w-2xl mx-auto">
+          <div className="bg-white rounded-full shadow-lg p-2 flex items-center gap-2 w-[90%] max-w-2xl mx-auto">
             <input
               type="text"
               placeholder="Search destinations, hotels, or experiences"
               className="flex-grow outline-none text-gray-700 px-3"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
             />
-            <button className="bg-rose-500 text-white px-6 py-2 rounded-full hover:bg-rose-600 transition">
+            <button
+              onClick={handleSearch}
+              className="bg-red-500 text-white px-6 py-2 rounded-full hover:bg-red-600 transition"
+            >
               Search
             </button>
           </div>
@@ -55,22 +88,22 @@ function Home() {
             {
               name: "Goa",
               image:
-                "https://images.unsplash.com/photo-1625505826977-66d796089d73?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=914",
+                "https://images.unsplash.com/photo-1625505826977-66d796089d73?ixlib=rb-4.1.0&auto=format&fit=crop&q=80&w=914",
             },
             {
               name: "Manali",
               image:
-                "https://images.unsplash.com/photo-1704795272663-68ed3010197c?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=435",
+                "https://images.unsplash.com/photo-1704795272663-68ed3010197c?ixlib=rb-4.1.0&auto=format&fit=crop&q=80&w=435",
             },
             {
               name: "Jaipur",
               image:
-                "https://images.unsplash.com/photo-1557690756-62754e561982?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=319",
+                "https://images.unsplash.com/photo-1557690756-62754e561982?ixlib=rb-4.1.0&auto=format&fit=crop&q=80&w=319",
             },
             {
               name: "Kerala",
               image:
-                "https://images.unsplash.com/photo-1589983846997-04788035bc83?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=1374",
+                "https://images.unsplash.com/photo-1589983846997-04788035bc83?ixlib=rb-4.1.0&auto=format&fit=crop&q=80&w=1374",
             },
           ].map((place, i) => (
             <div
@@ -93,42 +126,34 @@ function Home() {
       {/* Featured Listings */}
       <section className="py-16">
         <h2 className="text-3xl font-semibold text-center mb-10">Popular Listings</h2>
-        {featured.length > 0 ? (
+        {(filteredListings.length > 0 ? filteredListings : featured).length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-10">
-            {featured.map((item) => (
+            {(filteredListings.length > 0 ? filteredListings : featured).map((item) => (
               <Link
                 key={item._id}
                 to={`/listings/${item._id}`}
                 className="bg-white shadow-md rounded-xl overflow-hidden hover:shadow-xl hover:scale-105 transition block"
               >
                 <img
-                  src={
-                    typeof item.image === "string" ? item.image : item.image?.url
-                  }
+                  src={typeof item.image === "string" ? item.image : item.image?.url}
                   alt={item.title}
                   className="w-full h-48 object-cover"
                 />
                 <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    {item.title}
-                  </h3>
-                  <p className="text-gray-600 mt-1">
-                    📍 {item.location}, {item.country}
-                  </p>
-                  <p className="text-gray-700 font-medium mt-2">
-                    ₹ {item.price?.toLocaleString("en-IN")} / night
-                  </p>
+                  <h3 className="text-lg font-semibold text-gray-800">{item.title}</h3>
+                  <p className="text-gray-600 mt-1">📍 {item.location}, {item.country}</p>
+                  <p className="text-gray-700 font-medium mt-2">₹ {item.price?.toLocaleString("en-IN")} / night</p>
                 </div>
               </Link>
             ))}
           </div>
         ) : (
-          <p className="text-center text-gray-500">Loading featured listings...</p>
+          <p className="text-center text-gray-500">No results found</p>
         )}
       </section>
 
       {/* CTA Section */}
-      <section className="bg-rose-500 text-white text-center py-10 mx-10 px-6 rounded-3xl">
+      <section className="bg-red-500 text-white text-center py-10 mx-10 px-6 rounded-3xl">
         <h2 className="text-3xl md:text-4xl font-semibold mb-4">
           Ready to start your next adventure?
         </h2>
@@ -137,7 +162,7 @@ function Home() {
         </p>
         <Link
           to="/listings"
-          className="bg-white text-rose-500 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition"
+          className="bg-white text-red-500 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition"
         >
           Explore All Listings
         </Link>
