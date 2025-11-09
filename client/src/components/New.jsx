@@ -145,26 +145,42 @@ function New() {
         </div>
 
         {/* Image Upload */}
-        <div>
-          <label htmlFor="image" className="block mb-1 font-medium">
-            Upload Image
-          </label>
-          <input
-            id="image"
-            name="image"
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className={`w-full border rounded-md px-3 py-2 cursor-pointer focus:outline-none focus:ring-1 ${
-              errors.image
-                ? "border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-red-500"
-            }`}
-          />
-          {errors.image && (
-            <p className="text-red-500 text-sm mt-1">{errors.image}</p>
-          )}
-        </div>
+        {/* Image Upload */}
+<div>
+  <label htmlFor="image" className="block mb-1 font-medium">
+    Upload Image
+  </label>
+
+  <label
+    htmlFor="image"
+    className={`flex items-center w-full border rounded-md overflow-hidden cursor-pointer ${
+      errors.image ? "border-red-500" : "border-gray-300"
+    }`}
+  >
+    {/* Left side: Choose File */}
+    <div className="bg-gray-200 px-4 py-2 text-black font-medium">
+      Choose a file
+    </div>
+    {/* Right side: file name */}
+    <div className="flex-1 px-3 py-2 text-black">
+      {imageFile ? imageFile.name : "No file chosen"}
+    </div>
+
+    {/* Hidden input */}
+    <input
+      id="image"
+      type="file"
+      accept="image/*"
+      onChange={handleFileChange}
+      className="hidden"
+    />
+  </label>
+
+  {errors.image && (
+    <p className="text-red-500 text-sm mt-1">{errors.image}</p>
+  )}
+</div>
+
 
         {/* Price */}
         <div>
